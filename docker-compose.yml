@@ -49,7 +49,7 @@ services:
   agent:
     image: prefecthq/prefect:2.11.5-python3.11
     restart: always
-    entrypoint: [ "/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "YOUR_WORK_QUEUE_NAME" ]
+    entrypoint: [ "/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "clickhouse" ]
     environment:
       - PREFECT_API_URL=http://server:4200/api
       - EXTRA_PIP_PACKAGES=clickhouse_connect
