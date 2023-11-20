@@ -1,0 +1,70 @@
+version: '3.9'
+
+networks:
+  default:
+    driver: bridge
+    name: prefect-network
+
+services:
+  database:
+    image: postgres:15.2-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=prefect
+    expose:
+      - 5432
+    volumes:
+      - db:/var/lib/postgresql/data
+    profiles: [ "server" ]
+  clickhouse:
+    image: bitnami/clickhouse:latest
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    profiles: ["server"]
+    expose:
+      - 8123
+      - 9000
+    ports:
+      - 9000:9000
+      - 8123:8123
+  server:
+    image: prefecthq/prefect:2.11.5-python3.11
+    restart: always
+    volumes:
+      - prefect:/root/.prefect
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "server", "start"]
+    environment:
+      - PREFECT_UI_URL=http://127.0.0.1:4200/api
+      - PREFECT_API_URL=http://127.0.0.1:4200/api
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://postgres:postgres@database:5432/prefect
+    ports:
+      - 4200:4200
+    depends_on:
+      - database
+      - clickhouse
+    profiles: ["server"]
+  agent:
+    image: prefecthq/prefect:2.11.5-python3.11
+    restart: always
+    entrypoint: [ "/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "YOUR_WORK_QUEUE_NAME" ]
+    environment:
+      - PREFECT_API_URL=http://server:4200/api
+      - EXTRA_PIP_PACKAGES=clickhouse_connect
+    profiles: [ "agent" ]
+  cli:
+    image: prefecthq/prefect:2.11.5-python3.11
+    entrypoint: "bash"
+    working_dir: "/root/flows"
+    volumes:
+      - "./flows:/root/flows"
+    environment:
+      - PREFECT_API_URL=http://server:4200/api
+      - EXTRA_PIP_PACKAGES=clickhouse_connect
+    profiles: [ "cli" ]
+
+volumes:
+  prefect:
+  db:
